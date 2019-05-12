@@ -25,38 +25,57 @@
 		init: function(prap){
 			var arr=[];
 			var typePrap = (typeof prap).toLowerCase();
-			if(typePrap=="string"){
-				if(prap[0]=="#"){
-					arr[0] = document.getElementById(prap.replace(/#/, ''));
-				}
-				else if(prap[0]=="."){
-					var className = prap.replace(/\./, '');
-					if(document.getElementsByClassName){
-						var a = document.getElementsByClassName(className);
-						for(var i=0, len=a.length; i<len; i++){
-							arr[i] = a[i];
-						}
-					}else {
-						var allE = document.getElementsByTagName('*');
-						var reg = new RegExp("\\b"+ className +"\\b");
-						for(var i=0, len=allE.length; i<len; i++){
-							if(reg.test(allE[i].className)){
-								arr.push(allE[i]);
-							}
-						}
-					}
-				}
-			}else if(typePrap=="object"){
-				if(prap.nodeName){
-					arr[0] = prap;
-				}else{
+			if( typePrap=="object" ){
+				if( prap==window || prap.nodeType ){
+					arr[0]=prap;
+				}else if( !isNaN(prap.length) ){
 					for(var i=0, len=prap.length; i<len; i++){
 						arr[i] = prap[i];
 					}
 				}
 			}
-
-			for(var i in arr){
+			else if( typePrap=="string" ){
+				var prapArr = prap.split(" ");
+				var index = 0;
+				arr = search(prapArr[0], [document]);
+				function search(str, parentArr){
+					var arr=[];
+					for(var i=0, len=parentArr.length; i<len; i++){
+						arr = arr.concat( getElements(str, parentArr[i]) );
+					}
+					return index==prapArr.length-1 ? arr : search(prapArr[++index], arr);
+				}
+				function getElements(str, parent){
+					var endArr = [];
+					if( str[0]=="#" ){	// id
+						endArr[0]=document.getElementById(str.replace("#", ""));
+					}
+					else if( str[0]=="." ){	// className
+						if( parent.getElementBysClassName ){
+							var a = parent.getElementBysClassName(str.replace("\.", ""));
+							for(var i=0, len=a.length; i<len; i++){
+								endArr[i] = a[i];
+							}
+						}else{
+							var allE = parent.getElementsByTagName('*');
+							var reg = new RegExp("(^|\\s)"+ str.replace("\.", "") +"(\\s|$)");
+							for(var i=0, len=allE.length; i<len; i++){
+								if( reg.test(allE[i].className) ){
+									endArr.push( allE[i] );
+								}
+							}
+						}
+					}
+					else{	// tagName
+						var a = parent.getElementsByTagName(str);
+						for(var i=0, len=a.length; i<len; i++){
+							endArr[i] = a[i];
+						}
+					}
+					return endArr;
+				}
+			}
+			for(var i=0, len=arr.length; i<len; i++){
 				this[i] = arr[i];
 			}
 			return arr.length;
@@ -107,6 +126,19 @@
 				this.onmousedown = fun;
 			});
 		},
+		hover: function(){
+			var args = arguments;
+			if( args.length===1 ){
+				this.each(function(){
+					this.onmouseenter = args[0];
+				});
+			}else if( args.length===2 ){
+				this.each(function(){
+					this.onmouseenter = args[0];
+					this.onmouseleave = args[1];
+				});
+			}
+		},
 		// 设置、获取样式
 		css: function(){
 			var args = arguments;
@@ -127,6 +159,93 @@
 			}
 			return this;
 		},
+		offset: function(){
+			var obj = {top:0, left:0};
+			for(var This = this[0]; This!=document.body; This = This.offsetParent){
+				obj.top += This.offsetTop;
+				obj.left += This.offsetLeft;
+			}
+			return obj;
+		},
+		position: function(){
+			return {
+				top : this[0].offsetTop, 
+				left: this[0].offsetLeft
+			};
+		},
+		// 设置、获取滚动高度
+		scrollTop: function(val){
+			if(val){
+				this.each(function(){
+					if(this==document){
+						document.documentElement.scrollTop = val;
+						document.body.scrollTop = val;
+					}else{
+						this.scrollTop = val;
+					}
+				});
+				return this;
+			}else{
+				if(this[0]==document){
+					return document.documentElement.scrollTop || document.body.scrollTop;
+				}else{
+					return this[0].scrollTop;
+				}
+			}
+		},
+		// 设置、获取滚动宽度
+		scrollLeft: function(val){
+			if(val){
+				this.each(function(){
+					if(this == document){
+						document.documentElement.scrollLeft = val;
+						document.body.scrollLeft = val;
+					}else{
+						this.scrollLeft = val;
+					}
+				});
+				return this;
+			}else{
+				if(this[0]==document){
+					return document.documentElement.scrollLeft || document.body.scrollLeft;
+				}else{
+					return this[0].scrollLeft;
+				}
+			}
+		},
+		// 设置获取宽度
+		width: function(val){
+			if(val){
+				this.css("width", val+( (parseInt(val)==val)&&"px") );
+				return this;
+			}else{
+				return this.css("width");
+			}
+		},
+		// 设置获取高度
+		height: function(val){
+			if(val){
+				this.css("height", val+( (parseInt(val)==val)&&"px" ) );
+				return this;
+			}else{
+				return this.css("height");
+			}
+		},
+		// padding + 计算宽高
+		innerWidth: function(){
+			return this[0].clientWidth;
+		},
+		innerHeight: function(){
+			return this[0].clientHeight;
+		},
+		// padding + border + 计算宽高
+		outerWidth: function(){
+			return this[0].offsetWidth;
+		},
+		outerHeight: function(){
+			return this[0].offsetWidth;
+		},
+		// 设置、获取html内容
 		html: function(innerHTML){
 			if(innerHTML!=undefined){
 				this.each(function(){
@@ -137,6 +256,7 @@
 				return this[0].innerHTML;
 			}
 		},
+		// 设置、获取文本
 		text: function(innerText){
 			if(innerText!=undefined){
 				this.each(function(){
@@ -147,6 +267,7 @@
 				return this[0].innerText;
 			}
 		},
+		// 添加样式名
 		addClass: function(classString){
 			var classArr = classString.split(" ");
 			for(var i=0, len=classArr.length; i<len; i++){
@@ -232,14 +353,73 @@
 			this.each(function(){
 				this.style.display = 'none';
 			});
-			// var args = arguments;
-			// for(var i=0, len=args.length; i<len; i++){
-			// 	var typeofArgs = (typeof args[i]).toLowerCase();
-			// 	switch(typeofArgs){
-			// 		case "number": time = args[i]; break;
-			// 	}
-			// }
+			return this;
+		},
+		// 淡入、淡出（实现）
+		fade: function(state, args){
+			var time=600, callback, easing;
+			if((typeof state).toLowerCase()=="string" ){
+				if(state.toLowerCase()=="in") state=1;
+				if(state.toLowerCase()=="out") state=0;
+			}
+			for(var i=0, len=args.length; i<len; i++){
+				var typeArgs = (typeof args[i]).toLowerCase();
+				if(typeArgs=="number"){
+					time = args[i]<0 ? 0 : args[i];
+				}else if(typeArgs=="string"){
+					switch(args[i]){
+						case "slow"  : time=800; break;
+						case "normal": time=600; break;
+						case "fast"  : time=400; break;
+						default: easing=args[i]; break;
+					}
+				}else if(typeArgs=="function"){
+					callback = args[i];
+				}
+			}
+			// 获取透明度
+			function getAttr(obj, attr){
+				return obj.currentStyle?obj.currentStyle[attr]:getComputedStyle(obj)[attr];
+			}
 
+			var endVal = state;
+			this.each(function(){
+				var startVal = parseInt(getAttr(this, "opacity"));
+				if(startVal==undefined) startVal = parseInt(getAttr(this, "filter"));
+				if( state && getAttr(this, "display")=="none" ){
+					startVal = 0;
+					this.style.opacity = 0;
+					this.style.filter = "alpha(opacity=0)";
+				}
+				if(state) this.style.display = "block";
+				var startTime = new Date();
+				var This = this;
+				var timer = setInterval(function(){
+					var nowTime = new Date();
+					var prop = (nowTime - startTime) / time;
+					if(prop>=1){
+						prop=1;
+						clearInterval(timer);
+						if(!state) This.style.display = "none";
+						callback && callback.call(This);
+					}
+					var val = startVal + prop*(endVal - startVal);
+					This.style.opacity = val;
+					This.style.filter = "alpha(opacity="+100*val+")";
+				}, 13);
+			});
+			return this;
+		},
+		// 淡入（接口）
+		fadeIn: function(){
+			var args = arguments;
+			this.fade(1, args);
+			return this;
+		},
+		// 淡出（接口）
+		fadeOut: function(){
+			var args = arguments;
+			this.fade(0, args);
 			return this;
 		}
 	};
