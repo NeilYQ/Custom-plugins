@@ -17,6 +17,51 @@
 			return new Init(prap);
 	}
 
+	// 检测含有css样式名称字符串, 返回样式名数组
+	function testPrap(prap){
+		if(!prap) return [];
+		var prapArr = prap.split(" ");
+		var index = 0;
+		var arr = search(prapArr[0], [document]);
+		function search(str, parentArr){
+			var arr=[];
+			for(var i=0, len=parentArr.length; i<len; i++){
+				arr = arr.concat( getElements(str, parentArr[i]) );
+			}
+			return index==prapArr.length-1 ? arr : search(prapArr[++index], arr);
+		}
+		function getElements(str, parent){
+			var endArr = [];
+			if( str[0]=="#" ){	// id
+				endArr[0]=document.getElementById(str.replace("#", ""));
+			}
+			else if( str[0]=="." ){	// className
+				if( parent.getElementBysClassName ){
+					var a = parent.getElementBysClassName(str.replace("\.", ""));
+					for(var i=0, len=a.length; i<len; i++){
+						endArr[i] = a[i];
+					}
+				}else{
+					var allE = parent.getElementsByTagName('*');
+					var reg = new RegExp("(^|\\s)"+ str.replace("\.", "") +"(\\s|$)");
+					for(var i=0, len=allE.length; i<len; i++){
+						if( reg.test(allE[i].className) ){
+							endArr.push( allE[i] );
+						}
+					}
+				}
+			}
+			else{	// tagName
+				var a = parent.getElementsByTagName(str);
+				for(var i=0, len=a.length; i<len; i++){
+					endArr[i] = a[i];
+				}
+			}
+			return endArr;
+		}
+		return arr;
+	}
+
 	// JQ对象
 	function Init(prap){
 		this.length = this.init(prap);
@@ -35,45 +80,7 @@
 				}
 			}
 			else if( typePrap=="string" ){
-				var prapArr = prap.split(" ");
-				var index = 0;
-				arr = search(prapArr[0], [document]);
-				function search(str, parentArr){
-					var arr=[];
-					for(var i=0, len=parentArr.length; i<len; i++){
-						arr = arr.concat( getElements(str, parentArr[i]) );
-					}
-					return index==prapArr.length-1 ? arr : search(prapArr[++index], arr);
-				}
-				function getElements(str, parent){
-					var endArr = [];
-					if( str[0]=="#" ){	// id
-						endArr[0]=document.getElementById(str.replace("#", ""));
-					}
-					else if( str[0]=="." ){	// className
-						if( parent.getElementBysClassName ){
-							var a = parent.getElementBysClassName(str.replace("\.", ""));
-							for(var i=0, len=a.length; i<len; i++){
-								endArr[i] = a[i];
-							}
-						}else{
-							var allE = parent.getElementsByTagName('*');
-							var reg = new RegExp("(^|\\s)"+ str.replace("\.", "") +"(\\s|$)");
-							for(var i=0, len=allE.length; i<len; i++){
-								if( reg.test(allE[i].className) ){
-									endArr.push( allE[i] );
-								}
-							}
-						}
-					}
-					else{	// tagName
-						var a = parent.getElementsByTagName(str);
-						for(var i=0, len=a.length; i<len; i++){
-							endArr[i] = a[i];
-						}
-					}
-					return endArr;
-				}
+				arr = testPrap(prap);
 			}
 			for(var i=0, len=arr.length; i<len; i++){
 				this[i] = arr[i];
@@ -114,6 +121,70 @@
 				}
 				return -1;
 			}
+		},
+		// 检测是否有class名
+		hasClass: function(classStr){
+			var has = false;
+			this.each(function(){
+				var reg = new RegExp("(^|\\s)"+classStr+"(\\s|$)");
+				if( reg.test(this.className) ) has=true;
+			});
+			return has;
+		},
+		// 检测父元素
+		parent: function(){
+			var arr = [];
+			this.each(function(){
+				arr.push( this.parentNode );
+			});
+			return new Init(arr);
+		},
+		/****************bug 还未做数组内的对象去重*********************/
+		// 检测所有父元素
+		parents: function(){
+			var arr = [];
+			var html = document.getElementsByTagName('html')[0];
+			this.each(function(){
+				var parent = this;
+				while(parent!=html){
+					parent = parent.parentNode;
+					arr.push(parent);
+				}
+			});
+			return new Init(arr);
+		},
+		// 检测子元素
+		children: function(str){
+			var arr = [];
+			if(!str){
+				this.each(function(){
+					var child = this.children;
+					for(var i=0, len=child.length; i<len; i++){
+						arr.push( child[i] );
+					}
+				});
+			}else{
+				var fstr = str[0];
+				var nType = (fstr=='#'&&"id") || (fstr=='.'&&"className") || "nodeName";
+				str = str.replace(/[#\.]/g, "");
+				this.each(function(){
+					var child = this.children;
+					var reg = new RegExp("(^|\\s)"+str+"(\\s|$)");
+					for(var i=0, len=child.length; i<len; i++){
+						if( nType=="className" && reg.test(child[i].className) ){
+							arr.push( child[i] );
+						}
+						else if( child[i][nType].toLowerCase()==str ){
+							arr.push( child[i] );
+						}
+					}
+				});
+			}
+			return new Init(arr);
+		},
+		// 查找
+		find: function(prap){
+			return new Init(testPrap(prap));
 		},
 		// 事件
 		click: function( fun ){
